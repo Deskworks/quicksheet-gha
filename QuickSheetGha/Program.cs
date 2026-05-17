@@ -1,13 +1,12 @@
-using System.Net.Http;
+﻿using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 /// <summary>
-/// QuickSheet GitHub Actions Extension — live workflow run statuses on your desktop.
+/// QuickSheet GitHub Actions Extension - live workflow run statuses on your desktop.
 /// Prefix: "gha". Usage: "gha: owner/repo" or "gha: owner/repo, N" (show N runs, default 10).
 /// Optionally set GITHUB_TOKEN env var for private repos and higher rate limits.
-/// Uses GitHub REST API v3 — free, no signup required for public repos.
 /// </summary>
 class Program
 {
@@ -20,7 +19,6 @@ class Program
 
     private static readonly HttpClient Http;
 
-    // Cache: repo -> (runs, fetchedAt)
     private static readonly Dictionary<string, (List<WorkflowRun> runs, DateTime fetchedAt)> Cache = new();
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
@@ -96,9 +94,12 @@ class Program
 
         if (extParams.Length == 0)
         {
-            WriteResult(id, 0, 0, "gha: owner/repo");
-            WriteResult(id, 1, 0, "Set GITHUB_TOKEN for private repos");
-            SendWrite(id);
+            var cells = new object[]
+            {
+                new { r = 0, c = 0, v = "gha: owner/repo" },
+                new { r = 1, c = 0, v = "Set GITHUB_TOKEN for private repos" }
+            };
+            SendJson(new { type = "write", id, cells });
             return;
         }
 
@@ -116,15 +117,16 @@ class Program
         {
             List<WorkflowRun> runs = GetRuns(repo, maxRuns);
 
+            var cells = new List<object>();
             int row = 0;
             string hasToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN") != null ? "" : " (public)";
-            WriteResult(id, row++, 0, $"⚡ {repo}{hasToken}");
-            WriteResult(id, row++, 0, $"{"Status",-4} {"Workflow",-22} {"Branch",-18} {"Age",8}");
-            WriteResult(id, row++, 0, new string('─', 56));
+            cells.Add(new { r = row++, c = 0, v = $"\u26a1 {repo}{hasToken}" });
+            cells.Add(new { r = row++, c = 0, v = $"{"Status",-4} {"Workflow",-22} {"Branch",-18} {"Age",8}" });
+            cells.Add(new { r = row++, c = 0, v = new string('\u2500', 56) });
 
             if (runs.Count == 0)
             {
-                WriteResult(id, row++, 0, "No workflow runs found.");
+                cells.Add(new { r = row++, c = 0, v = "No workflow runs found." });
             }
             else
             {
@@ -134,16 +136,16 @@ class Program
                     string wfName = Truncate(run.Name ?? run.WorkflowId.ToString(), 22);
                     string branch = Truncate(run.HeadBranch ?? "?", 18);
                     string age = FormatAge(run.UpdatedAt);
-                    WriteResult(id, row++, 0, $"{icon,-4} {wfName,-22} {branch,-18} {age,8}");
+                    cells.Add(new { r = row++, c = 0, v = $"{icon,-4} {wfName,-22} {branch,-18} {age,8}" });
                 }
             }
 
-            SendWrite(id);
+            SendJson(new { type = "write", id, cells });
         }
         catch (Exception ex)
         {
-            WriteResult(id, 0, 0, $"❌ Error: {ex.Message}");
-            SendWrite(id);
+            var cells = new object[] { new { r = 0, c = 0, v = $"\u274c Error: {ex.Message}" } };
+            SendJson(new { type = "write", id, cells });
         }
     }
 
@@ -184,16 +186,16 @@ class Program
 
     static string GetIcon(string status, string? conclusion) => (status, conclusion) switch
     {
-        ("completed", "success") => "✅",
-        ("completed", "failure") => "❌",
-        ("completed", "cancelled") => "🚫",
-        ("completed", "timed_out") => "⏱️",
-        ("completed", "skipped") => "⏭️",
-        ("completed", _) => "⚠️",
-        ("in_progress", _) => "🔄",
-        ("queued", _) => "⏳",
-        ("waiting", _) => "⏸️",
-        _ => "❓"
+        ("completed", "success") => "\u2705",
+        ("completed", "failure") => "\u274c",
+        ("completed", "cancelled") => "\ud83d\udeab",
+        ("completed", "timed_out") => "\u23f1\ufe0f",
+        ("completed", "skipped") => "\u2b50\ufe0f",
+        ("completed", _) => "\u26a0\ufe0f",
+        ("in_progress", _) => "\ud83d\udd04",
+        ("queued", _) => "\u23f3",
+        ("waiting", _) => "\u23f8\ufe0f",
+        _ => "\u2753"
     };
 
     static string FormatAge(DateTime updatedAt)
@@ -206,13 +208,7 @@ class Program
     }
 
     static string Truncate(string s, int max) =>
-        s.Length <= max ? s : s[..(max - 1)] + "…";
-
-    static void WriteResult(string id, int r, int c, string v) =>
-        SendJson(new { type = "write", id, r, c, v });
-
-    static void SendWrite(string id) =>
-        SendJson(new { type = "write", id });
+        s.Length <= max ? s : s[..(max - 1)] + "\u2026";
 
     static void SendLog(string msg) =>
         SendJson(new { type = "log", message = msg });
