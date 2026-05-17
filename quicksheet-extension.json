@@ -1,0 +1,20 @@
+{
+  "name": "GitHub Actions Status",
+  "prefix": "gha",
+  "version": "1.0.0",
+  "description": "Live GitHub Actions workflow run statuses — success/failure/in-progress with branch and age. Set GITHUB_TOKEN for private repos.",
+  "author": "cemheren",
+  "entry": "QuickSheetGha/QuickSheetGha.csproj",
+  "language": "dotnet",
+  "params": [
+    { "name": "repo", "description": "GitHub repo in owner/repo format (e.g. cemheren/QuickSheet)" },
+    { "name": "count", "description": "Number of runs to display (default: 10, max: 20)", "optional": true }
+  ],
+  "width": 1,
+  "height": 14,
+  "refreshSeconds": 300,
+  "links": {
+    "repo": "https://github.com/cemheren/quicksheet-gha",
+    "main": "https://github.com/cemheren/QuickSheet"
+  }
+}
